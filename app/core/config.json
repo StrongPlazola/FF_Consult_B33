@@ -18,13 +18,13 @@
         "language": "en"
     },
     "counters": {
-      "pass": 0,
-      "total": 0,
-      "yield": 0
+        "pass": 1,
+        "total": 3,
+        "yield": 33.33
     },
     "fftester": {
-    "wsdl": "http://10.106.237.111:9000/FFTester/?wsdl",
-    "station": "BSLT-NESTS009",
-    "user": "Admin"
-}
+        "wsdl": "http://10.106.237.111:9000/FFTester/?wsdl",
+        "station": "BSLT-NESTS009",
+        "user": "Admin"
+    }
 }

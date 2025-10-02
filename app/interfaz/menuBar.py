@@ -4,6 +4,7 @@ import tkinter as tk
 from app.interfaz.plcConfig import PLCConfigWindow
 from app.interfaz.scannerConfig import ScannerConfigWindow
 from app.interfaz.imageConfig import ImageConfigWindow
+from app.interfaz.fftesterConfig import FFTesterConfigWindow
 
 class menubar(tk.Menu):
     def __init__(self, master):
@@ -27,12 +28,26 @@ class menubar(tk.Menu):
             label="Scanner Config",
             command=lambda: ScannerConfigWindow(master)
         )
+        m_settings.add_command(
+            label="FFtester Config",
+            command=lambda: FFTesterConfigWindow(master)
+        )
         self.add_cascade(label="Settings", menu=m_settings)
+
+        #FFTester
+
+        #config_menu.add_command(label="FFTester Config", command=lambda: FFTesterConfigWindow(master))
+
+
 
         #Images
         image_menu = tk.Menu(self, tearoff=0)
         image_menu.add_command(label="Image Config", command=lambda: ImageConfigWindow(master))
         self.add_cascade(label="Images", menu=image_menu)
+
+
+
+
 
 
 

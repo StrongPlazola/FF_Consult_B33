@@ -1,13 +1,12 @@
 import customtkinter as ctk
 from app.core.configManager import load_config, save_config
 
-
-class ScannerConfigWindow(ctk.CTkToplevel):
+class FFTesterConfigWindow(ctk.CTkToplevel):
     def __init__(self, master, on_close=None):
         super().__init__(master)
 
-        self.title("Scanner Configuration")
-        self.geometry("400x250")
+        self.title("FFTester Configuration")
+        self.geometry("600x300")
         self.resizable(False, False)
         self.transient(master)
         self.grab_set()
@@ -15,20 +14,21 @@ class ScannerConfigWindow(ctk.CTkToplevel):
         self.lift()
         self.configure(fg_color="white")
 
-
         self.on_close = on_close
 
         container = ctk.CTkFrame(self, corner_radius=10, fg_color="#f2f2f2")
         container.pack(expand=True, fill="both", padx=20, pady=20)
 
         config = load_config()
-        sc_cfg = config.get("scanner", {})
+        ff_cfg = config.get("fftester", {})
 
-        title = ctk.CTkLabel(container, text="Scanner Configuration", font=("Arial", 18, "bold"))
+        title = ctk.CTkLabel(container, text="FFTester Configuration", font=("Arial", 18, "bold"))
         title.pack(pady=(10,15))
 
-        self.ip_entry   = self._add_field(container, "Scanner IP:", sc_cfg.get("ip", "192.168.0.50"))
-        self.port_entry = self._add_field(container, "Port:", sc_cfg.get("port", 9004))
+        # Campos de entrada
+        self.wsdl_entry = self._add_field(container, "WSDL URL:", ff_cfg.get("wsdl", "http://127.0.0.1:9000/FFTester/?wsdl"))
+        self.station_entry = self._add_field(container, "Station Name:", ff_cfg.get("station", "StationX"))
+        self.user_entry = self._add_field(container, "User ID:", ff_cfg.get("user", "Admin"))
 
         save_btn = ctk.CTkButton(container,
                                  text="💾 Save Configuration",
@@ -54,16 +54,16 @@ class ScannerConfigWindow(ctk.CTkToplevel):
 
     def save_config(self):
         config = load_config()
-        config["scanner"] = {
-            "ip": self.ip_entry.get(),
-            "port": int(self.port_entry.get())
+        config["fftester"] = {
+            "wsdl": self.wsdl_entry.get(),
+            "station": self.station_entry.get(),
+            "user": self.user_entry.get()
         }
         save_config(config)
-        print("✅ Scanner config saved:", config["scanner"])
+        print("✅ FFTester config saved:", config["fftester"])
         self.destroy()
 
     def _on_close(self):
         if self.on_close:
             self.on_close()
         self.destroy()
-

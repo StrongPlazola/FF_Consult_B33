@@ -9,40 +9,43 @@ def resource_path(relative_path: str) -> str:
         return os.path.join(sys._MEIPASS, relative_path)
     return os.path.join(os.path.dirname(__file__), relative_path)
 
-# Ruta al config.json (cuando está en modo desarrollo)
-CONFIG_PATH = Path(__file__).resolve().parent / "config.json"
+# Ruta preferida para guardar config.json (externo editable)
+CONFIG_PATH = Path(os.getcwd()) / "config.json"
+
+# Ruta al config por defecto (empaquetado con PyInstaller)
+DEFAULT_CONFIG_PATH = resource_path("config.json")
+
 
 def load_config():
     """
     Carga el archivo de configuración.
-    - En desarrollo: usa config.json junto al código.
-    - En PyInstaller: usa el config.json empaquetado.
+    - Si existe un config.json externo => lo carga.
+    - Si no, intenta cargar el empaquetado (solo lectura).
+    - Si no hay nada, devuelve estructura vacía.
     """
     try:
-        # Primero buscamos con resource_path (para EXE)
-        path = resource_path("app/config.json")
-        if os.path.exists(path):
-            with open(path, "r", encoding="utf-8") as f:
-                return json.load(f)
-
-        # Si no existe, usamos el path normal en desarrollo
         if CONFIG_PATH.exists():
             with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+                return json.load(f)
+
+        if os.path.exists(DEFAULT_CONFIG_PATH):
+            with open(DEFAULT_CONFIG_PATH, "r", encoding="utf-8") as f:
                 return json.load(f)
 
     except Exception as e:
         print(f"⚠️ Error cargando config.json: {e}")
 
-    # Si no hay archivo, devolvemos un diccionario vacío
     return {"plc": {}, "scanner": {}, "images": {}, "ui": {}, "counters": {}}
+
 
 def save_config(data: dict):
     """
-    Guarda el archivo config.json (solo funciona en modo desarrollo,
-    porque dentro del EXE no se puede escribir).
+    Guarda SIEMPRE en el config externo (junto al .exe o cwd).
+    Así se conservan cambios aunque la app esté empaquetada.
     """
     try:
         with open(CONFIG_PATH, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=4)
+        print(f"💾 Config guardado en {CONFIG_PATH}")
     except Exception as e:
         print(f"⚠️ No se pudo guardar config.json: {e}")

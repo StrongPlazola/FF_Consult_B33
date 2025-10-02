@@ -14,12 +14,23 @@ from app.interfaz.scannerConfig import ScannerConfigWindow
 import os
 import time
 import threading
+import datetime
+import sys
 
+def set_window_icon(window):
+    import os, sys
+    def resource_path(relative_path):
+        if hasattr(sys, "_MEIPASS"):
+            return os.path.join(sys._MEIPASS, relative_path)
+        return os.path.join(os.path.abspath("."), relative_path)
+
+    icon_path = resource_path("app/resources/automation.ico")
+    if os.path.exists(icon_path):
+        window.iconbitmap(icon_path)
 
 class mainWindow(ctk.CTk):
     def __init__(self):
         super().__init__()
-
         menu = menubar(self)
         self.config(menu=menu)
         # Configuración ventana
@@ -34,6 +45,12 @@ class mainWindow(ctk.CTk):
         self.grid_columnconfigure(0, weight=2)   # Lado izquierdo grande
         self.grid_columnconfigure(1, weight=1)   # Panel derecho
 
+        self.log_file = os.path.join(os.getcwd(), "SpecTrace.log")
+
+
+
+        # dentro de _init_():
+        set_window_icon(self)
 
 
 
@@ -237,9 +254,9 @@ class mainWindow(ctk.CTk):
         alarm_label = ctk.CTkLabel(alarm_section, text="Alarm Information", font=("Arial", 14, "bold"))
         alarm_label.grid(row=0, column=0, sticky="w", padx=10, pady=5)
 
-        alarm_text = ctk.CTkTextbox(alarm_section)
-        alarm_text.grid(row=1, column=0, sticky="nsew", padx=10, pady=5)
-        alarm_text.insert("end", "08:54:05: Aplicación SpecTrace iniciada.\n")
+        self.alarm_text = ctk.CTkTextbox(alarm_section)
+        self.alarm_text.grid(row=1, column=0, sticky="nsew", padx=10, pady=5)
+        self.alarm_text.insert("end", "08:54:05: Aplicación SpecTrace iniciada.\n")
 
         # ====== Intentar conectar al PLC ======
         #self.plc_link = PLCLink(self.update_plc_led, self.on_plc_fail)
@@ -252,12 +269,59 @@ class mainWindow(ctk.CTk):
         self.scanner_link = ScannerLink(self.update_scanner_led, self.on_scanner_fail)
         self.start_scanner_connect()
 
-    def log(self, msg:str):
-        print(msg)
-        self.after(0,lambda: (
-            self.log_text.insert("end", msg + "\n"),
-            self.log_text.see("end")
-        ))
+
+
+    def log(self, msg: str):
+        """Escribe mensaje en el textbox y también en SpecTrace.log"""
+        ts = datetime.datetime.now().strftime("%H:%M:%S")
+        line = f"{ts}: {msg}"
+
+        # Mostrar en textbox
+        self.log_text.insert("end", line + "\n")
+        self.log_text.see("end")
+
+        # Guardar en archivo
+        with open(self.log_file, "a", encoding="utf-8") as f:
+            f.write(line + "\n")
+
+    def log_alarm(self, message: str):
+        """Agrega mensajes al panel Alarm Information"""
+        import datetime
+        ts = datetime.datetime.now().strftime("%H:%M:%S")
+        self.alarm_text.insert("end", f"{ts}: {message}\n")
+        self.alarm_text.see("end")  # 👈 hace scroll automático
+
+
+
+    def update_counters(self, result: str):
+        config = load_config()
+        counters = config.get("counters", {"pass": 0, "total": 0, "yield": 0})
+
+        # siempre sube el total
+        counters["total"] += 1
+
+        # si es OK, sube el pass
+        if result == "OK":
+            counters["pass"] += 1
+
+        # yield = (pass / total) * 100
+        if counters["total"] > 0:
+            counters["yield"] = round((counters["pass"] / counters["total"]) * 100, 2)
+
+        # actualizar UI
+        self.pass_entry.delete(0, "end")
+        self.pass_entry.insert(0, str(counters["pass"]))
+
+        self.total_entry.delete(0, "end")
+        self.total_entry.insert(0, str(counters["total"]))
+
+        self.yield_entry.delete(0, "end")
+        self.yield_entry.insert(0, f"%{counters['yield']}")
+
+        # guardar en json
+        from app.core.configManager import save_config
+        config["counters"] = counters
+        save_config(config)
 
 
     def update_plc_led(self, status: bool):
@@ -314,7 +378,7 @@ class mainWindow(ctk.CTk):
             self.table.delete(item)
 
         serial = self.sn_entry.get().strip()
-        if not serial.startswith("K"):  # 👈 validar primera letra
+        if not serial.upper().startswith("K"):  # 👈 validar primera letra
             CTkMessagebox(
                 title="Invalid Serial",
                 message="El número de serie debe iniciar con 'K'.\nPor favor vuelve a escanear.",
@@ -362,6 +426,7 @@ class mainWindow(ctk.CTk):
             option_3="Cancel"
         )
         response = msg.get()
+        self.log_alarm("No se pudo conectar a la Camara")
 
         if response == "Retry":
             self.start_scanner_connect(force=True)
@@ -392,6 +457,7 @@ class mainWindow(ctk.CTk):
             return response
         except Exception as e:
             self.log(f"❌ Error en GetUnitInfo: {e}")
+            self.log_alarm("GetUnitInfo Error")
             return None
 
 
@@ -459,10 +525,21 @@ class mainWindow(ctk.CTk):
 
             if result in ("OK", "NG"):
                 self.show_latest_image(result)
+                serial = self.sn_entry.get().strip()
+
+                self.update_counters(result)
 
                 # cambia status label
                 if result == "OK":
-                    self.status_label.configure(text="Testing...", text_color="blue")
+                    try:
+                        self.status_label.configure(text="Testing...", text_color="blue")
+                    except Exception:
+                        pass
+
+                    if serial:
+                        self.get_unit_info(serial)  # consulta GetUnitInfo
+                        self.save_result(serial, result)  # manda SaveResult
+                        self.sn_entry.delete(0, "end")  # limpiar
                 else:
                     self.status_label.configure(text="FAIL", text_color="red")
                     CTkMessagebox(
@@ -471,14 +548,14 @@ class mainWindow(ctk.CTk):
                         icon="cancel",
                         option_1="OK"
                     )
+                self.log_alarm("FAIL detectado en serial")
 
-                serial = self.sn_entry.get().strip()
-                if serial:
-                    self.get_unit_info(serial)  # consulta GetUnitInfo
-                    self.save_result(serial, result)  # manda SaveResult
-                    self.sn_entry.delete(0, "end")  # limpiar
+
+
+
         else:
             print("⚠️ Respuesta desconocida:", data)
+
 
     def build_fftester_xml(self, serial: str, status: str) -> str:
         # status debe ser "Passed" o "Failed"
@@ -546,12 +623,14 @@ class mainWindow(ctk.CTk):
                 if status == "Passed":
                     self.log(f"✅ Test PASSED confirmado por FFTester para {serial}")
                     self.status_label.configure(text="Pass", text_color="green")
+
                 else:
                     self.log(f"❌ Test FAILED confirmado por FFTester para {serial}")
             else:
                 self.log(f"⚠️ SaveResult rechazado para {serial}: {value}")
                 #self.log(f"📝 Respuesta completa: {resp}")
                 self.status_label.configure(text="Fail", text_color="red")
+                self.log_alarm(f"Save Result rechazado para {serial}")
 
         except Exception as e:
             self.log(f"❌ SaveResult error: {e}")
