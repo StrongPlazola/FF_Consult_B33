@@ -1,0 +1,30 @@
+{
+    "plc": {
+        "ip": "192.168.0.3",
+        "rack": 0,
+        "slot": 0,
+        "write_memory": "M2",
+        "read_memory": "M1"
+    },
+    "scanner": {
+        "ip": "192.168.10.200",
+        "port": 8500
+    },
+    "images": {
+        "path": "C:\\Users\\gdlyplaz\\Documents\\Project B33\\FF_Consult-main\\FF_Consult-main\\photos"
+    },
+    "ui": {
+        "theme": "light",
+        "language": "en"
+    },
+    "counters": {
+      "pass": 0,
+      "total": 0,
+      "yield": 0
+    },
+    "fftester": {
+    "wsdl": "http://10.106.237.111:9000/FFTester/?wsdl",
+    "station": "BSLT-NESTS009",
+    "user": "Admin"
+}
+}
